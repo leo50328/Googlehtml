@@ -16,13 +16,13 @@
             --chrome-text-light: #cccccc;
             --chrome-border: #4a4a4a;
             --google-blue: #4285F4;
-            /* 亮高顏色定義 */
-            --hl-tag: #569cd6;      /* 藍色 */
-            --hl-attr: #9cdcfe;     /* 淺藍 */
-            --hl-string: #ce9178;   /* 橘色 */
-            --hl-comment: #6a9955;  /* 綠色 */
-            --hl-keyword: #c586c0;  /* 紫色 */
-            --hl-number: #b5cea8;   /* 淺綠 */
+            /* 精彩亮高顏色 */
+            --hl-tag: #569cd6;
+            --hl-attr: #9cdcfe;
+            --hl-string: #ce9178;
+            --hl-comment: #6a9955;
+            --hl-keyword: #c586c0;
+            --hl-number: #b5cea8;
         }
 
         body {
@@ -43,7 +43,7 @@
             padding: 10px;
         }
 
-        /* --- 頁籤樣式 --- */
+        /* --- UI 佈局 --- */
         .tab-bar {
             display: flex;
             align-items: flex-end;
@@ -112,7 +112,7 @@
             margin-left: auto;
         }
 
-        /* --- 編輯器佈局 --- */
+        /* --- 編輯器核心 --- */
         .editor-area {
             position: relative;
             flex-grow: 1;
@@ -139,7 +139,7 @@
         #editor { z-index: 2; color: transparent; background: transparent; caret-color: white; outline: none; resize: none; }
         #highlighting { z-index: 1; color: #d4d4d4; }
 
-        /* 語法亮高詳細顏色 */
+        /* 亮高細節 CSS */
         .hl-tag { color: var(--hl-tag); }
         .hl-attr { color: var(--hl-attr); }
         .hl-string { color: var(--hl-string); }
@@ -187,7 +187,7 @@
 
     <div class="editor-area">
         <pre id="highlighting"></pre>
-        <textarea id="editor" spellcheck="false" placeholder="在此撰寫程式碼..." autofocus></textarea>
+        <textarea id="editor" spellcheck="false" placeholder="在此開始撰寫程式碼..." autofocus></textarea>
     </div>
 </div>
 
@@ -208,7 +208,7 @@
     let activeFileIndex = 0;
 
     /* ==============================
-       2. Google Auth & API 初始化
+       2. Google API 初始化與授權
        ============================== */
     function showStatus(msg) { document.getElementById('system-msg').textContent = msg; }
 
@@ -225,24 +225,21 @@
                 },
             });
             await new Promise(resolve => gapi.load('client:picker', resolve));
-            // 關鍵修復：確保 drive 資源也被載入
             await gapi.client.init({ apiKey: API_KEY, discoveryDocs: [DISCOVERY_DOC] });
             pickerApiLoaded = true;
             showStatus('準備就緒');
-        } catch (err) { console.error('初始化失敗:', err); }
+        } catch (err) { showStatus('API 載入失敗'); }
     }
 
     async function fetchUserProfile() {
-        try {
-            const resp = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
-                headers: { Authorization: `Bearer ${accessToken}` }
-            });
-            const profile = await resp.json();
-            const avatar = document.getElementById('user-avatar');
-            avatar.src = profile.picture;
-            avatar.style.display = 'block';
-            showStatus(`歡迎，${profile.name}`);
-        } catch (err) { console.error('獲取資訊失敗'); }
+        const resp = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
+            headers: { Authorization: `Bearer ${accessToken}` }
+        });
+        const profile = await resp.json();
+        const avatar = document.getElementById('user-avatar');
+        avatar.src = profile.picture;
+        avatar.style.display = 'block';
+        showStatus(`歡迎，${profile.name}`);
     }
 
     function toggleAuth() {
@@ -264,33 +261,25 @@
     }
 
     /* ==============================
-       3. 精彩語法亮高引擎
+       3. 精彩亮高引擎 (Regex)
        ============================== */
     function updateHighlighting() {
         let text = document.getElementById('editor').value;
-        // 1. 基本轉義
+        // 先處理轉義，防止 HTML 代碼被瀏覽器當成真的標籤渲染
         text = text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 
-        // 2. 註解
+        // 亮高各類規則
         text = text.replace(/(&lt;!--[\s\S]*?--&gt;)/g, '<span class="hl-comment">$1</span>');
-        
-        // 3. DOCTYPE
         text = text.replace(/(&lt;!DOCTYPE[\s\S]*?&gt;)/gi, '<span class="hl-keyword">$1</span>');
-
-        // 4. 字串
         text = text.replace(/("(?:\\.|[^"\\])*")/g, '<span class="hl-string">$1</span>');
         text = text.replace(/('(?:\\.|[^'\\])*')/g, '<span class="hl-string">$1</span>');
-
-        // 5. 數字
         text = text.replace(/\b(\d+px|\d+%|\d+)\b/g, '<span class="hl-number">$1</span>');
 
-        // 6. JavaScript 關鍵字
         const keywords = /\b(const|let|var|function|return|if|else|for|while|switch|case|break|new|this|true|false|null|undefined|document|window|console)\b/g;
         text = text.replace(keywords, '<span class="hl-keyword">$1</span>');
 
-        // 7. HTML 標籤與屬性 (精細匹配)
+        // HTML 標籤內部的細節處理
         text = text.replace(/(&lt;\/?)(\w+)(.*?)(\/?&gt;)/g, (m, p1, p2, p3, p4) => {
-            // p3 是屬性區
             let attrs = p3.replace(/(\s+)([a-zA-Z0-9-]+)(=)/g, '$1<span class="hl-attr">$2</span>$3');
             return `<span class="hl-bracket">${p1}</span><span class="hl-tag">${p2}</span>${attrs}<span class="hl-bracket">${p4}</span>`;
         });
@@ -299,11 +288,11 @@
     }
 
     /* ==============================
-       4. 雲端儲存與開啟 (名稱自動化)
+       4. 雲端功能 (修復下載問題)
        ============================== */
     async function saveToDrive() {
-        const fileName = files[activeFileIndex].name; // 直接讀取目前分頁名稱
-        showStatus(`正在儲存至雲端: ${fileName}...`);
+        const fileName = files[activeFileIndex].name;
+        showStatus('正在儲存...');
         
         const metadata = { name: fileName, mimeType: 'text/html' };
         const form = new FormData();
@@ -316,37 +305,48 @@
                 headers: { Authorization: `Bearer ${accessToken}` },
                 body: form
             });
-            if (resp.ok) showStatus('儲存成功！');
-            else showStatus('儲存失敗，請檢查權限');
-        } catch (e) { showStatus('網絡錯誤'); }
+            if (resp.ok) showStatus('雲端儲存成功！');
+            else showStatus('儲存失敗');
+        } catch (e) { showStatus('連線錯誤'); }
     }
 
+    // 關鍵修復：改用 fetch 直接獲取 Raw Media，避免代碼變奇怪
     function openFromDrive() {
         if (!accessToken || !pickerApiLoaded) return;
         const picker = new google.picker.PickerBuilder()
-            .addView(new google.picker.DocsView().setMimeTypes('text/html,text/plain,application/octet-stream'))
+            .addView(new google.picker.DocsView().setMimeTypes('text/html,text/plain'))
             .setOAuthToken(accessToken)
             .setDeveloperKey(API_KEY)
             .setCallback(async (data) => {
                 if (data.action === google.picker.Action.PICKED) {
                     const fileId = data.docs[0].id;
                     const fileName = data.docs[0].name;
-                    showStatus('正在下載檔案...');
+                    showStatus('檔案讀取中...');
+                    
                     try {
-                        const resp = await gapi.client.drive.files.get({ fileId: fileId, alt: 'media' });
-                        document.getElementById('editor').value = resp.body;
-                        files[activeFileIndex].name = fileName; // 更新目前分頁名稱為雲端檔名
+                        // 使用 fetch 直接抓取原始文字內容
+                        const response = await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`, {
+                            headers: { Authorization: `Bearer ${accessToken}` }
+                        });
+                        const content = await response.text();
+                        
+                        document.getElementById('editor').value = content;
+                        files[activeFileIndex].name = fileName;
+                        document.getElementById('file-info').textContent = fileName;
                         updateHighlighting();
                         renderTabs();
                         showStatus(`已開啟: ${fileName}`);
-                    } catch (err) { showStatus('開啟檔案失敗'); }
+                    } catch (err) {
+                        showStatus('讀取失敗');
+                        console.error(err);
+                    }
                 }
             }).build();
         picker.setVisible(true);
     }
 
     /* ==============================
-       5. 介面與其他功能
+       5. 介面操作
        ============================== */
     function renderTabs() {
         const tabsCont = document.getElementById('fileTabs');
@@ -367,7 +367,7 @@
     }
 
     function addNewFileTab() {
-        const name = prompt("檔案名稱", "new_page.html");
+        const name = prompt("檔案名稱", "page.html");
         if (name) {
             files.push({ name, content: '' });
             activeFileIndex = files.length - 1;
@@ -406,7 +406,7 @@
             const start = ed.selectionStart;
             ed.value = ed.value.substring(0, start) + text + ed.value.substring(ed.selectionEnd);
             updateHighlighting();
-        } catch (e) {}
+        } catch (e) { showStatus('無法貼上，請確認權限'); }
     }
 
     function executeCode() {
@@ -414,13 +414,32 @@
         window.open(URL.createObjectURL(blob));
     }
 
-    function copyCode() { navigator.clipboard.writeText(document.getElementById('editor').value); showStatus('已複製'); }
-    function clearCode() { document.getElementById('editor').value = ''; updateHighlighting(); }
+    function copyCode() {
+        navigator.clipboard.writeText(document.getElementById('editor').value);
+        showStatus('已複製到剪貼簿');
+    }
 
+    function clearCode() {
+        document.getElementById('editor').value = '';
+        updateHighlighting();
+    }
+
+    // 編輯器事件監聽
     document.getElementById('editor').addEventListener('input', updateHighlighting);
     document.getElementById('editor').addEventListener('scroll', () => {
         document.getElementById('highlighting').scrollTop = document.getElementById('editor').scrollTop;
         document.getElementById('highlighting').scrollLeft = document.getElementById('editor').scrollLeft;
+    });
+
+    // Tab 縮排
+    document.getElementById('editor').addEventListener('keydown', e => {
+        if (e.key === 'Tab') {
+            e.preventDefault();
+            const start = e.target.selectionStart;
+            e.target.value = e.target.value.substring(0, start) + "    " + e.target.value.substring(e.target.selectionEnd);
+            e.target.selectionStart = e.target.selectionEnd = start + 4;
+            updateHighlighting();
+        }
     });
 
     window.onload = () => { initGoogleDrive(); renderTabs(); updateHighlighting(); };

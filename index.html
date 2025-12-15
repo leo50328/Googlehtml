@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>HTML 雲端執行器 PRO</title>
+    <title>HTML 雲端執行器</title>
     
     <script src="https://accounts.google.com/gsi/client" async defer></script>
     <script src="https://apis.google.com/js/api.js" async defer></script>
@@ -65,8 +65,6 @@
             margin-bottom: -2px;
             font-weight: bold;
         }
-        .tab-close { font-size: 10px; opacity: 0.5; }
-        .tab-close:hover { opacity: 1; color: #ff5555; }
 
         .btn-add-tab {
             background: none; border: none; color: white; cursor: pointer;
@@ -91,10 +89,22 @@
             color: white;
             transition: 0.2s;
         }
-        button:hover { background: #666; }
+        button:hover:not(:disabled) { background: #666; }
+        button:disabled { opacity: 0.3; cursor: not-allowed; }
+
         .btn-google { background: var(--google-blue); font-weight: bold; }
         .btn-primary { background: #3b873b; }
         .btn-danger { background: #8c2a2a; }
+
+        /* 頭像樣式 */
+        #user-avatar {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            border: 2px solid #555;
+            display: none; /* 預設隱藏 */
+            margin-left: auto; /* 貼齊最右邊 */
+        }
 
         /* --- 編輯器佈局 --- */
         .editor-area {
@@ -120,18 +130,9 @@
             border: none;
         }
 
-        #editor {
-            z-index: 2;
-            color: transparent;
-            background: transparent;
-            caret-color: white;
-            outline: none;
-            resize: none;
-        }
-
+        #editor { z-index: 2; color: transparent; background: transparent; caret-color: white; outline: none; resize: none; }
         #highlighting { z-index: 1; color: #d4d4d4; }
 
-        /* 語法亮高 */
         .hl-tag { color: #569cd6; }
         .hl-attr { color: #9cdcfe; }
         .hl-string { color: #ce9178; }
@@ -155,51 +156,51 @@
     </div>
 
     <div class="controls">
-        <button class="btn-google" onclick="handleAuthClick()">🔑 登入 Google</button>
-        <button onclick="saveToDrive()">☁️ 雲端儲存</button>
-        <button onclick="openFromDrive()">📂 雲端開啟</button>
-        <div style="width: 1px; height: 20px; background: #444; margin: 0 5px;"></div>
-        <button onclick="undoCode()">↩️ 復原</button>
-        <button onclick="redoCode()">↪️ 重做</button>
+        <button id="auth-btn" class="btn-google" onclick="toggleAuth()">🔑 登入 Google</button>
+        <button id="save-btn" onclick="saveToDrive()" disabled>☁️ 雲端儲存</button>
+        <button id="open-btn" onclick="openFromDrive()" disabled>📂 雲端開啟</button>
+        <div style="width: 1px; height: 20px; background: #444;"></div>
+        <button onclick="importLocal()">📥 匯入</button>
+        <button onclick="exportLocal()">📤 匯出</button>
+        <button onclick="pasteCode()">📋 貼上</button>
         <button onclick="copyCode()">📋 複製</button>
         <button class="btn-primary" onclick="executeCode()">▶️ 執行網頁</button>
         <button class="btn-danger" onclick="clearCode()">🗑️ 清空</button>
+        
+        <img id="user-avatar" src="" alt="User Avatar">
     </div>
 
     <div id="status-bar">
-        <span id="system-msg">等待系統初始化...</span>
-        <span id="file-info">未命名檔案</span>
+        <span id="system-msg">系統初始化中...</span>
+        <span id="file-info">index.html</span>
     </div>
 
     <div class="editor-area">
         <pre id="highlighting"></pre>
-        <textarea id="editor" spellcheck="false" placeholder="在此開始撰寫程式碼..." autofocus></textarea>
+        <textarea id="editor" spellcheck="false" placeholder="在此撰寫程式碼..." autofocus></textarea>
     </div>
 </div>
 
 <script>
     /* ==============================
-       1. 設定區 (已填入你提供的憑證)
+       1. 設定區 (Client ID 與 API Key)
        ============================== */
     const CLIENT_ID = '990557557612-vd1h80orjn7676d28v9ss1v1fope1vgi.apps.googleusercontent.com';
     const API_KEY = 'AIzaSyAv3opO-MHMy8AOlQ0iw5y8Wy2zdlenq0Q';
     const DISCOVERY_DOC = 'https://www.googleapis.com/discovery/v1/apis/drive/v3/rest';
-    const SCOPES = 'https://www.googleapis.com/auth/drive.file';
+    // 新增 profile 權限以獲取頭像
+    const SCOPES = 'https://www.googleapis.com/auth/drive.file https://www.googleapis.com/auth/userinfo.profile';
 
     let tokenClient;
     let accessToken = null;
     let pickerApiLoaded = false;
 
-    // 多檔案管理狀態
-    let files = [{ name: 'index.html', content: '<h1>Hello World</h1>' }];
+    // 狀態管理：預設程式碼為空白
+    let files = [{ name: 'index.html', content: '' }];
     let activeFileIndex = 0;
-    
-    // 歷史紀錄 stack (Undo/Redo)
-    let historyStack = [files[0].content];
-    let historyPointer = 0;
 
     /* ==============================
-       2. 初始化與 Google API
+       2. Google Auth & Profile 邏輯
        ============================== */
     function showStatus(msg) { document.getElementById('system-msg').textContent = msg; }
 
@@ -208,58 +209,127 @@
             tokenClient = google.accounts.oauth2.initTokenClient({
                 client_id: CLIENT_ID,
                 scope: SCOPES,
-                callback: (resp) => {
-                    if (resp.error) return showStatus('授權失敗: ' + resp.error);
+                callback: async (resp) => {
+                    if (resp.error) return;
                     accessToken = resp.access_token;
-                    showStatus('Google 授權成功！');
+                    await fetchUserProfile();
+                    updateAuthUI(true);
                 },
             });
-            
             await new Promise(resolve => gapi.load('client:picker', resolve));
             await gapi.client.init({ apiKey: API_KEY, discoveryDocs: [DISCOVERY_DOC] });
             pickerApiLoaded = true;
-            showStatus('系統就緒');
-        } catch (err) {
-            showStatus('初始化失敗，請檢查網路或憑證設定');
-            console.error(err);
+            showStatus('準備就緒');
+        } catch (err) { console.error(err); }
+    }
+
+    async function fetchUserProfile() {
+        try {
+            const resp = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
+                headers: { Authorization: `Bearer ${accessToken}` }
+            });
+            const profile = await resp.json();
+            const avatar = document.getElementById('user-avatar');
+            avatar.src = profile.picture;
+            avatar.style.display = 'block';
+            showStatus(`歡迎，${profile.name}`);
+        } catch (err) { console.error('無法獲取頭像'); }
+    }
+
+    function toggleAuth() {
+        if (!accessToken) {
+            tokenClient.requestAccessToken({ prompt: 'consent' });
+        } else {
+            // 登出邏輯
+            google.accounts.oauth2.revoke(accessToken, () => {
+                accessToken = null;
+                updateAuthUI(false);
+                showStatus('已登出 Google');
+            });
         }
     }
 
-    function handleAuthClick() {
-        tokenClient.requestAccessToken({prompt: accessToken === null ? 'consent' : ''});
+    function updateAuthUI(isLoggedIn) {
+        const authBtn = document.getElementById('auth-btn');
+        const avatar = document.getElementById('user-avatar');
+        const saveBtn = document.getElementById('save-btn');
+        const openBtn = document.getElementById('open-btn');
+
+        if (isLoggedIn) {
+            authBtn.textContent = '🚪 登出 Google';
+            saveBtn.disabled = false;
+            openBtn.disabled = false;
+        } else {
+            authBtn.textContent = '🔑 登入 Google';
+            avatar.style.display = 'none';
+            avatar.src = '';
+            saveBtn.disabled = true;
+            openBtn.disabled = true;
+        }
     }
 
     /* ==============================
-       3. 雲端與備份功能
-       ============================= */
+       3. 本地按鈕功能 (匯入/匯出/貼上)
+       ============================== */
+    function exportLocal() {
+        const blob = new Blob([editor.value], { type: 'text/html' });
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = files[activeFileIndex].name;
+        a.click();
+        showStatus('檔案已導出');
+    }
+
+    function importLocal() {
+        const input = document.createElement('input');
+        input.type = 'file';
+        input.accept = '.html,.txt';
+        input.onchange = e => {
+            const file = e.target.files[0];
+            const reader = new FileReader();
+            reader.onload = event => {
+                editor.value = event.target.result;
+                files[activeFileIndex].name = file.name;
+                updateHighlighting();
+                renderTabs();
+                showStatus('導入成功');
+            };
+            reader.readAsText(file);
+        };
+        input.click();
+    }
+
+    async function pasteCode() {
+        try {
+            const text = await navigator.clipboard.readText();
+            const start = editor.selectionStart;
+            editor.value = editor.value.substring(0, start) + text + editor.value.substring(editor.selectionEnd);
+            updateHighlighting();
+            showStatus('已貼上內容');
+        } catch (err) { showStatus('無法讀取剪貼簿'); }
+    }
+
+    /* ==============================
+       4. 雲端功能 (Drive)
+       ============================== */
     async function saveToDrive() {
-        if (!accessToken) return showStatus('請先點擊登入 Google');
-        
         const fileName = prompt("儲存至雲端的檔名", files[activeFileIndex].name);
         if (!fileName) return;
-
         const metadata = { name: fileName, mimeType: 'text/html' };
-        const fileContent = editor.value;
-
         const form = new FormData();
         form.append('metadata', new Blob([JSON.stringify(metadata)], {type: 'application/json'}));
-        form.append('file', new Blob([fileContent], {type: 'text/html'}));
-
-        showStatus('儲存中...');
+        form.append('file', new Blob([editor.value], {type: 'text/html'}));
         try {
             const resp = await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart', {
                 method: 'POST',
-                headers: { 'Authorization': 'Bearer ' + accessToken },
+                headers: { Authorization: `Bearer ${accessToken}` },
                 body: form
             });
-            const data = await resp.json();
-            showStatus('儲存成功！ID: ' + data.id.substring(0,8) + '...');
+            showStatus('已儲存至雲端');
         } catch (e) { showStatus('儲存失敗'); }
     }
 
     function openFromDrive() {
-        if (!accessToken || !pickerApiLoaded) return showStatus('請先登入 Google');
-        
         const picker = new google.picker.PickerBuilder()
             .addView(new google.picker.DocsView().setMimeTypes('text/html,text/plain'))
             .setOAuthToken(accessToken)
@@ -267,70 +337,20 @@
             .setCallback(async (data) => {
                 if (data.action === google.picker.Action.PICKED) {
                     const fileId = data.docs[0].id;
-                    const fileName = data.docs[0].name;
                     const resp = await gapi.client.drive.files.get({ fileId: fileId, alt: 'media' });
-                    
-                    files.push({ name: fileName, content: resp.body });
-                    activeFileIndex = files.length - 1;
-                    renderTabs();
-                    loadActiveFile();
-                    showStatus('檔案已載入: ' + fileName);
+                    editor.value = resp.body;
+                    updateHighlighting();
+                    showStatus('雲端檔案已載入');
                 }
-            })
-            .build();
+            }).build();
         picker.setVisible(true);
     }
 
     /* ==============================
-       4. 頁籤與編輯邏輯
+       5. 編輯器核心邏輯
        ============================== */
     const editor = document.getElementById('editor');
     const highlighting = document.getElementById('highlighting');
-
-    function renderTabs() {
-        const tabsCont = document.getElementById('fileTabs');
-        tabsCont.innerHTML = '';
-        files.forEach((file, idx) => {
-            const tab = document.createElement('div');
-            tab.className = `file-tab ${idx === activeFileIndex ? 'active' : ''}`;
-            tab.innerHTML = `<span>${file.name}</span> <span class="tab-close" onclick="closeTab(event, ${idx})">✕</span>`;
-            tab.onclick = () => switchTab(idx);
-            tabsCont.appendChild(tab);
-        });
-    }
-
-    function addNewFileTab() {
-        const name = prompt("新檔案名稱", "new_file.html");
-        if (!name) return;
-        files.push({ name: name, content: '' });
-        activeFileIndex = files.length - 1;
-        renderTabs();
-        loadActiveFile();
-    }
-
-    function switchTab(idx) {
-        files[activeFileIndex].content = editor.value; 
-        activeFileIndex = idx;
-        renderTabs();
-        loadActiveFile();
-    }
-
-    function closeTab(e, idx) {
-        e.stopPropagation();
-        if (files.length === 1) return;
-        files.splice(idx, 1);
-        if (activeFileIndex >= files.length) activeFileIndex = files.length - 1;
-        renderTabs();
-        loadActiveFile();
-    }
-
-    function loadActiveFile() {
-        editor.value = files[activeFileIndex].content;
-        document.getElementById('file-info').textContent = files[activeFileIndex].name;
-        updateHighlighting();
-        historyStack = [editor.value];
-        historyPointer = 0;
-    }
 
     function updateHighlighting() {
         let text = editor.value;
@@ -344,48 +364,49 @@
         highlighting.innerHTML = text + (text.endsWith('\n') ? ' ' : '');
     }
 
-    function pushHistory() {
-        const currentContent = editor.value;
-        if (currentContent === historyStack[historyPointer]) return;
-        historyStack = historyStack.slice(0, historyPointer + 1);
-        historyStack.push(currentContent);
-        if (historyStack.length > 50) historyStack.shift();
-        historyPointer = historyStack.length - 1;
+    function renderTabs() {
+        const tabsCont = document.getElementById('fileTabs');
+        tabsCont.innerHTML = '';
+        files.forEach((file, idx) => {
+            const tab = document.createElement('div');
+            tab.className = `file-tab ${idx === activeFileIndex ? 'active' : ''}`;
+            tab.innerHTML = `<span>${file.name}</span>`;
+            tab.onclick = () => {
+                files[activeFileIndex].content = editor.value;
+                activeFileIndex = idx;
+                editor.value = files[idx].content;
+                document.getElementById('file-info').textContent = file.name;
+                renderTabs(); updateHighlighting();
+            };
+            tabsCont.appendChild(tab);
+        });
     }
 
-    function undoCode() {
-        if (historyPointer > 0) {
-            historyPointer--;
-            editor.value = historyStack[historyPointer];
-            updateHighlighting();
+    function addNewFileTab() {
+        const name = prompt("檔案名稱", "new_page.html");
+        if (name) {
+            files.push({ name, content: '' });
+            activeFileIndex = files.length - 1;
+            renderTabs(); editor.value = ''; updateHighlighting();
         }
     }
 
-    function redoCode() {
-        if (historyPointer < historyStack.length - 1) {
-            historyPointer++;
-            editor.value = historyStack[historyPointer];
-            updateHighlighting();
-        }
+    function executeCode() {
+        const blob = new Blob([editor.value], {type: 'text/html'});
+        window.open(URL.createObjectURL(blob));
     }
 
-    /* ==============================
-       5. 事件監聽
-       ============================== */
-    editor.addEventListener('input', () => {
-        updateHighlighting();
-        // 本地自動備份
-        localStorage.setItem('local_backup_code', editor.value);
-        clearTimeout(window.historyTimer);
-        window.historyTimer = setTimeout(pushHistory, 500);
-    });
+    function copyCode() { navigator.clipboard.writeText(editor.value); showStatus('已複製'); }
+    function clearCode() { editor.value = ''; updateHighlighting(); }
 
+    editor.addEventListener('input', updateHighlighting);
     editor.addEventListener('scroll', () => {
         highlighting.scrollTop = editor.scrollTop;
         highlighting.scrollLeft = editor.scrollLeft;
     });
 
-    editor.addEventListener('keydown', (e) => {
+    // Tab 鍵縮排
+    editor.addEventListener('keydown', e => {
         if (e.key === 'Tab') {
             e.preventDefault();
             const start = editor.selectionStart;
@@ -395,40 +416,10 @@
         }
     });
 
-    function executeCode() {
-        const blob = new Blob([editor.value], {type: 'text/html'});
-        const url = URL.createObjectURL(blob);
-        window.open(url, '_blank');
-    }
-
-    function copyCode() {
-        navigator.clipboard.writeText(editor.value);
-        showStatus('代碼已複製到剪貼簿');
-        setTimeout(() => showStatus('系統就緒'), 2000);
-    }
-
-    function clearCode() {
-        if (confirm('確定要清空目前所有代碼嗎？')) {
-            editor.value = '';
-            updateHighlighting();
-            localStorage.removeItem('local_backup_code');
-            pushHistory();
-        }
-    }
-
     window.onload = () => {
         initGoogleDrive();
         renderTabs();
-        
-        // 載入本地暫存內容
-        const savedCode = localStorage.getItem('local_backup_code');
-        if (savedCode) {
-            editor.value = savedCode;
-            updateHighlighting();
-            showStatus('已載入本地備份內容');
-        } else {
-            loadActiveFile();
-        }
+        updateHighlighting();
     };
 </script>
 </body>

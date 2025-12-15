@@ -173,7 +173,7 @@
 
     <div class="editor-area">
         <pre id="highlighting"></pre>
-        <textarea id="editor" spellcheck="false" placeholder="在此開始撰寫程式碼..."></textarea>
+        <textarea id="editor" spellcheck="false" placeholder="在此開始撰寫程式碼..." autofocus></textarea>
     </div>
 </div>
 
@@ -230,7 +230,7 @@
     }
 
     /* ==============================
-       3. 雲端讀寫功能
+       3. 雲端與備份功能
        ============================= */
     async function saveToDrive() {
         if (!accessToken) return showStatus('請先點擊登入 Google');
@@ -270,7 +270,6 @@
                     const fileName = data.docs[0].name;
                     const resp = await gapi.client.drive.files.get({ fileId: fileId, alt: 'media' });
                     
-                    // 新增到檔案清單
                     files.push({ name: fileName, content: resp.body });
                     activeFileIndex = files.length - 1;
                     renderTabs();
@@ -310,7 +309,7 @@
     }
 
     function switchTab(idx) {
-        files[activeFileIndex].content = editor.value; // 存目前的
+        files[activeFileIndex].content = editor.value; 
         activeFileIndex = idx;
         renderTabs();
         loadActiveFile();
@@ -329,36 +328,28 @@
         editor.value = files[activeFileIndex].content;
         document.getElementById('file-info').textContent = files[activeFileIndex].name;
         updateHighlighting();
-        // 重設歷史
         historyStack = [editor.value];
         historyPointer = 0;
     }
 
     function updateHighlighting() {
         let text = editor.value;
-        // 轉義
         text = text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-        
-        // 正規表達式亮高
         text = text.replace(/(&lt;!--[\s\S]*?--&gt;)/g, '<span class="hl-comment">$1</span>');
         text = text.replace(/(".*?")/g, '<span class="hl-string">$1</span>');
         text = text.replace(/(&lt;\/?)(\w+)(.*?)(\/?&gt;)/g, (m, p1, p2, p3, p4) => {
             let attrs = p3.replace(/(\s+)([a-zA-Z0-9-]+)(=)/g, '$1<span class="hl-attr">$2</span>$3');
             return `<span style="color:#808080">${p1}</span><span class="hl-tag">${p2}</span>${attrs}<span style="color:#808080">${p4}</span>`;
         });
-
         highlighting.innerHTML = text + (text.endsWith('\n') ? ' ' : '');
     }
 
-    // Undo/Redo 實作
     function pushHistory() {
         const currentContent = editor.value;
         if (currentContent === historyStack[historyPointer]) return;
-        
-        // 如果在中間修改，切斷後面的記錄
         historyStack = historyStack.slice(0, historyPointer + 1);
         historyStack.push(currentContent);
-        if (historyStack.length > 50) historyStack.shift(); // 限制 50 步
+        if (historyStack.length > 50) historyStack.shift();
         historyPointer = historyStack.length - 1;
     }
 
@@ -383,7 +374,8 @@
        ============================== */
     editor.addEventListener('input', () => {
         updateHighlighting();
-        // 延遲紀錄歷史，避免過於頻繁
+        // 本地自動備份
+        localStorage.setItem('local_backup_code', editor.value);
         clearTimeout(window.historyTimer);
         window.historyTimer = setTimeout(pushHistory, 500);
     });
@@ -393,7 +385,6 @@
         highlighting.scrollLeft = editor.scrollLeft;
     });
 
-    // 支援 Tab 縮排
     editor.addEventListener('keydown', (e) => {
         if (e.key === 'Tab') {
             e.preventDefault();
@@ -420,6 +411,7 @@
         if (confirm('確定要清空目前所有代碼嗎？')) {
             editor.value = '';
             updateHighlighting();
+            localStorage.removeItem('local_backup_code');
             pushHistory();
         }
     }
@@ -427,9 +419,17 @@
     window.onload = () => {
         initGoogleDrive();
         renderTabs();
-        loadActiveFile();
+        
+        // 載入本地暫存內容
+        const savedCode = localStorage.getItem('local_backup_code');
+        if (savedCode) {
+            editor.value = savedCode;
+            updateHighlighting();
+            showStatus('已載入本地備份內容');
+        } else {
+            loadActiveFile();
+        }
     };
-
 </script>
 </body>
 </html>

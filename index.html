@@ -14,7 +14,8 @@
             --sidebar-bg: #252526;
             --tab-bg: #2d2d2d;
             --border-color: #333;
-            --accent-color: #4285F4; /* Google Blue */
+            --accent-color: #4285F4;
+            --line-num-color: #858585;
             
             /* Syntax Highlight */
             --hl-tag: #569cd6; --hl-attr: #9cdcfe; --hl-string: #ce9178;
@@ -41,83 +42,72 @@
             align-items: center;
             gap: 10px;
             height: 40px;
+            z-index: 10;
         }
 
-        /* 開關 Switch */
-        .switch-container {
-            display: flex; align-items: center; gap: 8px;
-            margin-right: 10px; padding-right: 10px;
-            border-right: 1px solid #444;
-        }
+        .switch-container { display: flex; align-items: center; gap: 8px; margin-right: 10px; padding-right: 10px; border-right: 1px solid #444; }
         .switch { position: relative; display: inline-block; width: 40px; height: 20px; }
         .switch input { opacity: 0; width: 0; height: 0; }
-        .slider {
-            position: absolute; cursor: pointer;
-            top: 0; left: 0; right: 0; bottom: 0;
-            background-color: #555; transition: .4s; border-radius: 20px;
-        }
-        .slider:before {
-            position: absolute; content: "";
-            height: 16px; width: 16px; left: 2px; bottom: 2px;
-            background-color: white; transition: .4s; border-radius: 50%;
-        }
+        .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #555; transition: .4s; border-radius: 20px; }
+        .slider:before { position: absolute; content: ""; height: 16px; width: 16px; left: 2px; bottom: 2px; background-color: white; transition: .4s; border-radius: 50%; }
         input:checked + .slider { background-color: var(--accent-color); }
         input:checked + .slider:before { transform: translateX(20px); }
 
-        /* 按鈕樣式 */
         .icon-btn {
-            background: transparent; border: 1px solid transparent;
-            color: #ccc; font-size: 18px; width: 36px; height: 36px;
-            border-radius: 4px; cursor: pointer; display: flex;
-            align-items: center; justify-content: center; transition: 0.2s;
+            background: transparent; border: 1px solid transparent; color: #ccc; font-size: 18px; width: 36px; height: 36px;
+            border-radius: 4px; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: 0.2s;
         }
         .icon-btn:hover { background: #3c3c3c; color: white; }
-        .icon-btn:active { transform: translateY(1px); }
         
-        /* 雲端模式按鈕變色 */
         body.cloud-mode .mode-sensitive { color: var(--accent-color); }
-        body.cloud-mode .mode-sensitive:hover { background: rgba(66, 133, 244, 0.2); }
-
         .spacer { flex-grow: 1; }
-        #user-avatar {
-            width: 28px; height: 28px; border-radius: 50%; 
-            border: 2px solid #555; display: none; cursor: pointer;
-        }
+        #user-avatar { width: 28px; height: 28px; border-radius: 50%; border: 2px solid #555; display: none; cursor: pointer; }
 
-        /* --- 編輯區 --- */
-        .tabs-bar {
-            background: var(--sidebar-bg); display: flex; gap: 1px;
-            padding-top: 5px; overflow-x: auto;
-        }
-        .tab {
-            padding: 8px 20px; background: var(--tab-bg); color: #888;
-            font-size: 13px; cursor: pointer; min-width: 80px;
-            user-select: none; display: flex; justify-content: center;
-        }
+        /* --- 編輯區佈局 --- */
+        .tabs-bar { background: var(--sidebar-bg); display: flex; gap: 1px; padding-top: 5px; overflow-x: auto; }
+        .tab { padding: 8px 20px; background: var(--tab-bg); color: #888; font-size: 13px; cursor: pointer; min-width: 80px; user-select: none; text-align: center; }
         .tab.active { background: #1e1e1e; color: white; border-top: 2px solid var(--accent-color); }
         
-        .editor-box { position: relative; flex-grow: 1; }
+        .main-editor-container {
+            display: flex;
+            flex-grow: 1;
+            position: relative;
+            overflow: hidden;
+        }
+
+        /* 行號欄 */
+        .line-numbers {
+            width: 45px;
+            background: #1e1e1e;
+            color: var(--line-num-color);
+            font-family: 'Consolas', monospace;
+            font-size: 14px;
+            line-height: 21px; /* 必須與 textarea 一致 */
+            padding: 20px 5px;
+            text-align: right;
+            border-right: 1px solid #333;
+            user-select: none;
+            overflow: hidden;
+        }
+
+        .editor-box { position: relative; flex-grow: 1; overflow: hidden; }
+        
         textarea, pre {
             position: absolute; top: 0; left: 0; width: 100%; height: 100%;
             padding: 20px; box-sizing: border-box; font-family: 'Consolas', monospace;
-            font-size: 14px; white-space: pre; border: none; background: transparent;
+            font-size: 14px; line-height: 21px; white-space: pre; border: none; background: transparent;
             outline: none; color: transparent; caret-color: white; resize: none;
         }
         pre { z-index: 1; color: #d4d4d4; pointer-events: none; }
         textarea { z-index: 2; }
 
-        /* Syntax Colors */
+        /* Syntax Highlight Colors */
         .hl-tag { color: var(--hl-tag); } .hl-attr { color: var(--hl-attr); }
         .hl-string { color: var(--hl-string); } .hl-comment { color: var(--hl-comment); font-style: italic; }
         
         .statusbar { background: #007acc; color: white; padding: 3px 10px; font-size: 12px; display: flex; justify-content: space-between; }
         
-        /* 右鍵選單 */
-        #ctx-menu {
-            position: absolute; display: none; background: #252526;
-            border: 1px solid #454545; z-index: 999; padding: 5px 0;
-            box-shadow: 2px 2px 10px rgba(0,0,0,0.5); min-width: 140px;
-        }
+        #ctx-menu { position: absolute; display: none; background: #252526; border: 1px solid #454545; z-index: 999; padding: 5px 0; min-width: 140px; }
         .ctx-item { padding: 8px 15px; color: #ccc; cursor: pointer; font-size: 13px; }
         .ctx-item:hover { background: #094771; color: white; }
     </style>
@@ -128,19 +118,20 @@
         <div class="switch-container" title="切換模式：本機 / 雲端">
             <label class="switch">
                 <input type="checkbox" id="cloud-switch" onchange="toggleCloudMode()">
-                <span class="slider round"></span>
+                <span class="slider"></span>
             </label>
             <span id="mode-icon">💻</span>
         </div>
 
-        <button id="btn-import" class="icon-btn mode-sensitive" onclick="handleImport()" title="匯入">📂</button>
-        <button id="btn-export" class="icon-btn mode-sensitive" onclick="handleExport()" title="儲存/匯出">💾</button>
+        <button id="btn-import" class="icon-btn mode-sensitive" onclick="handleImport()" title="匯入檔案">📂</button>
+        <button id="btn-export" class="icon-btn mode-sensitive" onclick="handleExport()" title="儲存檔案">💾</button>
         
         <div style="width:1px; height:20px; background:#444; margin:0 5px;"></div>
 
         <button class="icon-btn" onclick="executeCode()" title="執行網頁">▶️</button>
-        <button class="icon-btn" onclick="pasteCode()" title="貼上程式碼">📋</button>
-        <button class="icon-btn" onclick="copyCode()" title="複製程式碼">📄</button>
+        <button class="icon-btn" onclick="searchCode()" title="搜尋內容 (Ctrl+F)">🔍</button>
+        <button class="icon-btn" onclick="pasteCode()" title="貼上">📋</button>
+        <button class="icon-btn" onclick="copyCode()" title="複製">📄</button>
         <button class="icon-btn" onclick="clearCode()" title="清空內容">🗑️</button>
         
         <div class="spacer"></div>
@@ -152,13 +143,17 @@
         <button class="icon-btn" style="width:30px; height:30px; font-size:16px;" onclick="addNewTab()" title="新增分頁">+</button>
     </div>
 
-    <div class="editor-box">
-        <pre id="hl-layer"></pre>
-        <textarea id="editor" spellcheck="false" placeholder="請輸入 HTML..."></textarea>
+    <div class="main-editor-container">
+        <div id="line-numbers" class="line-numbers">1</div>
+        
+        <div class="editor-box">
+            <pre id="hl-layer"></pre>
+            <textarea id="editor" spellcheck="false" placeholder="請輸入 HTML..."></textarea>
+        </div>
     </div>
 
     <div class="statusbar">
-        <span id="status-msg">本機模式</span>
+        <span id="status-msg">就緒</span>
         <span id="file-info">index.html</span>
     </div>
 
@@ -168,7 +163,7 @@
     </div>
 
 <script>
-    /* --- 設定區 --- */
+    /* --- 常數設定 --- */
     const CLIENT_ID = '990557557612-vd1h80orjn7676d28v9ss1v1fope1vgi.apps.googleusercontent.com';
     const API_KEY = 'AIzaSyAv3opO-MHMy8AOlQ0iw5y8Wy2zdlenq0Q';
     const SCOPES = 'https://www.googleapis.com/auth/drive.file https://www.googleapis.com/auth/userinfo.profile';
@@ -180,68 +175,80 @@
 
     const editor = document.getElementById('editor');
     const hlLayer = document.getElementById('hl-layer');
+    const lineNumBox = document.getElementById('line-numbers');
 
-    /* --- 功能區 --- */
-    
-    // 貼上功能 (新)
-    async function pasteCode() {
-        try {
-            const text = await navigator.clipboard.readText();
-            const start = editor.selectionStart;
-            const end = editor.selectionEnd;
-            // 在游標位置插入，而非覆蓋全部
-            editor.value = editor.value.substring(0, start) + text + editor.value.substring(end);
-            editor.selectionStart = editor.selectionEnd = start + text.length;
-            highlight();
-            showMsg("已貼上");
-        } catch (err) {
-            alert('瀏覽器阻擋了貼上功能，請使用鍵盤 Ctrl+V');
-        }
-    }
-
-    // 複製功能
-    function copyCode() { 
-        navigator.clipboard.writeText(editor.value); 
-        showMsg("已複製"); 
-    }
-
-    // 模式切換
-    async function toggleCloudMode() {
-        const checkbox = document.getElementById('cloud-switch');
-        isCloudMode = checkbox.checked;
-        const body = document.body;
+    /* --- 1. 核心功能：行號與同步 --- */
+    function updateEditor() {
+        const text = editor.value;
         
-        if (isCloudMode) {
-            if (!accessToken) {
-                await initAuth();
-                if (!accessToken) { checkbox.checked = false; isCloudMode = false; return; }
-            }
-            body.classList.add('cloud-mode');
-            document.getElementById('mode-icon').textContent = '☁️';
-            document.getElementById('btn-import').title = "從 Google Drive 開啟";
-            document.getElementById('btn-export').title = "儲存至 Google Drive";
-            showMsg("已切換至雲端模式");
+        // 更新行號
+        const lines = text.split('\n').length;
+        let lineNumbersHTML = '';
+        for (let i = 1; i <= lines; i++) {
+            lineNumbersHTML += i + '<br>';
+        }
+        lineNumBox.innerHTML = lineNumbersHTML;
+
+        // 更新語法亮高
+        let c = text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+        c = c.replace(/(&lt;!--[\s\S]*?--&gt;)/g, '<span class="hl-comment">$1</span>')
+             .replace(/("[^"]*")/g, '<span class="hl-string">$1</span>')
+             .replace(/(&lt;\/?)(\w+)(.*?)(\/?&gt;)/g, (m,p1,p2,p3,p4) => 
+                `<span class="hl-tag">${p1}${p2}</span>${p3.replace(/(\s+)([a-zA-Z0-9-]+)(=)/g, '$1<span class="hl-attr">$2</span>$3')}<span class="hl-tag">${p4}</span>`
+             );
+        hlLayer.innerHTML = c + '\n';
+        
+        // 同步滾動
+        syncScroll();
+    }
+
+    function syncScroll() {
+        hlLayer.scrollTop = editor.scrollTop;
+        hlLayer.scrollLeft = editor.scrollLeft;
+        lineNumBox.scrollTop = editor.scrollTop; // 行號也要同步滾動
+    }
+
+    /* --- 2. 核心功能：搜尋 --- */
+    function searchCode() {
+        const query = prompt("搜尋程式碼：");
+        if (!query) return;
+
+        const content = editor.value;
+        const index = content.indexOf(query);
+
+        if (index !== -1) {
+            // 選取找到的文字
+            editor.focus();
+            editor.setSelectionRange(index, index + query.length);
+            
+            // 自動滾動到該位置
+            const lineHeight = 21;
+            const linesBefore = content.substring(0, index).split('\n').length;
+            editor.scrollTop = (linesBefore - 1) * lineHeight - 50; 
+            showMsg(`找到內容於第 ${linesBefore} 行`);
         } else {
-            body.classList.remove('cloud-mode');
-            document.getElementById('mode-icon').textContent = '💻';
-            document.getElementById('btn-import').title = "匯入本機檔案";
-            document.getElementById('btn-export').title = "匯出 (下載)";
-            showMsg("已切換至本機模式");
+            alert("找不到相符的內容");
         }
     }
 
-    function handleImport() { isCloudMode ? openFromDrive() : importLocal(); }
-    function handleExport() { isCloudMode ? saveToDrive() : exportLocal(); }
-    function showMsg(msg) { document.getElementById('status-msg').textContent = msg; }
+    /* --- 3. 雲端與檔案邏輯 (沿用並優化) --- */
+    async function toggleCloudMode() {
+        isCloudMode = document.getElementById('cloud-switch').checked;
+        if (isCloudMode && !accessToken) {
+            await initAuth();
+            if (!accessToken) { document.getElementById('cloud-switch').checked = false; isCloudMode = false; return; }
+        }
+        document.body.classList.toggle('cloud-mode', isCloudMode);
+        document.getElementById('mode-icon').textContent = isCloudMode ? '☁️' : '💻';
+        showMsg(isCloudMode ? "雲端模式已啟用" : "本機模式已啟用");
+    }
 
-    /* --- Google API --- */
     async function initAuth() {
         return new Promise((resolve) => {
             tokenClient.callback = async (resp) => {
                 if (resp.error) resolve(false);
                 accessToken = resp.access_token;
-                await fetchProfile();
-                resolve(true);
+                fetchProfile(); resolve(true);
             };
             tokenClient.requestAccessToken({ prompt: 'consent' });
         });
@@ -265,21 +272,20 @@
 
     function logoutGoogle() {
         if(confirm('登出 Google?')) {
-            google.accounts.oauth2.revoke(accessToken, () => {
-                accessToken = null;
-                document.getElementById('user-avatar').style.display = 'none';
-                document.getElementById('cloud-switch').checked = false;
-                toggleCloudMode();
-            });
+            accessToken = null; document.getElementById('user-avatar').style.display = 'none';
+            document.getElementById('cloud-switch').checked = false; toggleCloudMode();
         }
     }
 
-    /* --- 檔案處理 (Local & Drive) --- */
+    /* --- 4. 編輯與分頁動作 --- */
+    function handleImport() { isCloudMode ? openFromDrive() : importLocal(); }
+    function handleExport() { isCloudMode ? saveToDrive() : exportLocal(); }
+    function showMsg(msg) { document.getElementById('status-msg').textContent = msg; }
+
     function importLocal() {
         const input = document.createElement('input'); input.type = 'file';
         input.onchange = e => {
-            const f = e.target.files[0];
-            const r = new FileReader();
+            const f = e.target.files[0]; const r = new FileReader();
             r.onload = ev => { files.push({ name: f.name, content: ev.target.result }); switchTab(files.length - 1); };
             r.readAsText(f);
         }; input.click();
@@ -300,7 +306,7 @@
                     const id = data.docs[0].id; showMsg("下載中...");
                     const res = await fetch(`https://www.googleapis.com/drive/v3/files/${id}?alt=media`, { headers: {'Authorization': `Bearer ${accessToken}`} });
                     files.push({ name: data.docs[0].name, content: await res.text() });
-                    switchTab(files.length - 1); showMsg("開啟成功");
+                    switchTab(files.length - 1);
                 }
             }).build();
         picker.setVisible(true);
@@ -308,26 +314,24 @@
 
     function saveToDrive() {
         if (!pickerLoaded) return;
-        const view = new google.picker.DocsView(google.picker.ViewId.FOLDERS).setSelectFolderEnabled(true).setMimeTypes('application/vnd.google-apps.folder');
         const picker = new google.picker.PickerBuilder()
-            .addView(view).setOAuthToken(accessToken).setDeveloperKey(API_KEY).setTitle("選擇資料夾")
+            .addView(new google.picker.DocsView(google.picker.ViewId.FOLDERS).setSelectFolderEnabled(true))
+            .setOAuthToken(accessToken).setDeveloperKey(API_KEY).setTitle("選擇儲存資料夾")
             .setCallback(async (data) => {
                 if (data.action === google.picker.Action.PICKED) {
-                    showMsg("上傳中...");
+                    showMsg("儲存中...");
                     const meta = { name: files[activeIdx].name, mimeType: 'text/html', parents: [data.docs[0].id] };
                     const form = new FormData();
                     form.append('metadata', new Blob([JSON.stringify(meta)], {type: 'application/json'}));
                     form.append('file', new Blob([editor.value], {type: 'text/html'}));
-                    await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart', {
-                        method: 'POST', headers: {'Authorization': `Bearer ${accessToken}`}, body: form
-                    });
-                    showMsg("上傳完成");
+                    await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart', { method: 'POST', headers: {'Authorization': `Bearer ${accessToken}`}, body: form });
+                    showMsg("儲存成功");
                 }
             }).build();
         picker.setVisible(true);
     }
 
-    /* --- 核心邏輯 --- */
+    /* --- 5. 介面渲染與初始化 --- */
     function renderTabs() {
         const list = document.getElementById('tabs-list'); list.innerHTML = '';
         files.forEach((f, i) => {
@@ -341,27 +345,26 @@
         document.getElementById('file-info').textContent = files[activeIdx].name;
     }
 
-    function switchTab(i) { files[activeIdx].content = editor.value; activeIdx = i; editor.value = files[activeIdx].content; renderTabs(); highlight(); }
+    function switchTab(i) { files[activeIdx].content = editor.value; activeIdx = i; editor.value = files[activeIdx].content; renderTabs(); updateEditor(); }
     function addNewTab() { files.push({ name: 'new.html', content: '' }); switchTab(files.length - 1); }
-    function highlight() {
-        let c = editor.value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-        c = c.replace(/(&lt;!--[\s\S]*?--&gt;)/g, '<span class="hl-comment">$1</span>')
-             .replace(/("[^"]*")/g, '<span class="hl-string">$1</span>')
-             .replace(/(&lt;\/?)(\w+)(.*?)(\/?&gt;)/g, (m,p1,p2,p3,p4) => `<span class="hl-tag">${p1}${p2}</span>${p3.replace(/(\s+)([a-zA-Z0-9-]+)(=)/g, '$1<span class="hl-attr">$2</span>$3')}<span class="hl-tag">${p4}</span>`);
-        hlLayer.innerHTML = c + '\n';
-    }
-
     function renameTab() { const n = prompt("新名稱", files[ctxIdx].name); if(n){ files[ctxIdx].name=n; renderTabs(); } }
     function closeTab() { if(files.length>1 && confirm("確定關閉?")){ files.splice(ctxIdx,1); if(activeIdx>=files.length)activeIdx=files.length-1; switchTab(activeIdx); } }
+
+    async function pasteCode() { const text = await navigator.clipboard.readText(); const start = editor.selectionStart; editor.value = editor.value.substring(0, start) + text + editor.value.substring(editor.selectionEnd); updateEditor(); }
+    function copyCode() { navigator.clipboard.writeText(editor.value); showMsg("已複製"); }
+    function clearCode() { if(confirm("清空?")){ editor.value=''; updateEditor(); } }
     function executeCode() { const w=window.open(); w.document.write(editor.value); }
-    function clearCode() { if(confirm("清空?")){ editor.value=''; highlight(); } }
 
+    // 事件監聽
+    editor.addEventListener('input', updateEditor);
+    editor.addEventListener('scroll', syncScroll);
+    editor.addEventListener('keydown', e => { 
+        if(e.key==='Tab'){ e.preventDefault(); document.execCommand('insertText', false, '    '); }
+        if(e.ctrlKey && e.key === 'f') { e.preventDefault(); searchCode(); }
+    });
     document.onclick = e => { if(!e.target.closest('#ctx-menu')) document.getElementById('ctx-menu').style.display='none'; };
-    editor.addEventListener('input', highlight);
-    editor.addEventListener('scroll', () => { hlLayer.scrollTop=editor.scrollTop; hlLayer.scrollLeft=editor.scrollLeft; });
-    editor.addEventListener('keydown', e => { if(e.key==='Tab'){ e.preventDefault(); document.execCommand('insertText', false, '    '); }});
 
-    window.onload = () => { initGoogleLib(); renderTabs(); highlight(); };
+    window.onload = () => { initGoogleLib(); renderTabs(); updateEditor(); };
 </script>
 </body>
 </html>

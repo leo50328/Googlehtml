@@ -57,41 +57,28 @@
             background: transparent; border: 1px solid transparent; color: #ccc; font-size: 18px; width: 36px; height: 36px;
             border-radius: 4px; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: 0.2s;
         }
-        .icon-btn:hover { background: #3c3c3c; color: white; }
+        .icon-btn:hover:not(:disabled) { background: #3c3c3c; color: white; }
+        
+        /* 禁用狀態樣式 */
+        .icon-btn:disabled {
+            opacity: 0.2;
+            cursor: not-allowed;
+            filter: grayscale(1);
+        }
         
         body.cloud-mode .mode-sensitive { color: var(--accent-color); }
         .spacer { flex-grow: 1; }
         #user-avatar { width: 28px; height: 28px; border-radius: 50%; border: 2px solid #555; display: none; cursor: pointer; }
 
-        /* --- 編輯區佈局 --- */
+        /* --- 編輯區 --- */
         .tabs-bar { background: var(--sidebar-bg); display: flex; gap: 1px; padding-top: 5px; overflow-x: auto; }
         .tab { padding: 8px 20px; background: var(--tab-bg); color: #888; font-size: 13px; cursor: pointer; min-width: 80px; user-select: none; text-align: center; }
         .tab.active { background: #1e1e1e; color: white; border-top: 2px solid var(--accent-color); }
         
-        .main-editor-container {
-            display: flex;
-            flex-grow: 1;
-            position: relative;
-            overflow: hidden;
-        }
-
-        /* 行號欄 */
-        .line-numbers {
-            width: 45px;
-            background: #1e1e1e;
-            color: var(--line-num-color);
-            font-family: 'Consolas', monospace;
-            font-size: 14px;
-            line-height: 21px; /* 必須與 textarea 一致 */
-            padding: 20px 5px;
-            text-align: right;
-            border-right: 1px solid #333;
-            user-select: none;
-            overflow: hidden;
-        }
+        .main-editor-container { display: flex; flex-grow: 1; position: relative; overflow: hidden; }
+        .line-numbers { width: 45px; background: #1e1e1e; color: var(--line-num-color); font-family: 'Consolas', monospace; font-size: 14px; line-height: 21px; padding: 20px 5px; text-align: right; border-right: 1px solid #333; user-select: none; overflow: hidden; }
 
         .editor-box { position: relative; flex-grow: 1; overflow: hidden; }
-        
         textarea, pre {
             position: absolute; top: 0; left: 0; width: 100%; height: 100%;
             padding: 20px; box-sizing: border-box; font-family: 'Consolas', monospace;
@@ -101,7 +88,6 @@
         pre { z-index: 1; color: #d4d4d4; pointer-events: none; }
         textarea { z-index: 2; }
 
-        /* Syntax Highlight Colors */
         .hl-tag { color: var(--hl-tag); } .hl-attr { color: var(--hl-attr); }
         .hl-string { color: var(--hl-string); } .hl-comment { color: var(--hl-comment); font-style: italic; }
         
@@ -128,11 +114,11 @@
         
         <div style="width:1px; height:20px; background:#444; margin:0 5px;"></div>
 
-        <button class="icon-btn" onclick="executeCode()" title="執行網頁">▶️</button>
+        <button id="btn-run" class="icon-btn" onclick="executeCode()" title="執行網頁">▶️</button>
         <button class="icon-btn" onclick="searchCode()" title="搜尋內容 (Ctrl+F)">🔍</button>
         <button class="icon-btn" onclick="pasteCode()" title="貼上">📋</button>
         <button class="icon-btn" onclick="copyCode()" title="複製">📄</button>
-        <button class="icon-btn" onclick="clearCode()" title="清空內容">🗑️</button>
+        <button id="btn-clear" class="icon-btn" onclick="clearCode()" title="清空內容">🗑️</button>
         
         <div class="spacer"></div>
         <img id="user-avatar" src="" title="Google 帳號 (點擊登出)" onclick="logoutGoogle()">
@@ -145,10 +131,9 @@
 
     <div class="main-editor-container">
         <div id="line-numbers" class="line-numbers">1</div>
-        
         <div class="editor-box">
             <pre id="hl-layer"></pre>
-            <textarea id="editor" spellcheck="false" placeholder="請輸入 HTML..."></textarea>
+            <textarea id="editor" spellcheck="false" placeholder="請在此輸入 HTML 程式碼..."></textarea>
         </div>
     </div>
 
@@ -163,7 +148,6 @@
     </div>
 
 <script>
-    /* --- 常數設定 --- */
     const CLIENT_ID = '990557557612-vd1h80orjn7676d28v9ss1v1fope1vgi.apps.googleusercontent.com';
     const API_KEY = 'AIzaSyAv3opO-MHMy8AOlQ0iw5y8Wy2zdlenq0Q';
     const SCOPES = 'https://www.googleapis.com/auth/drive.file https://www.googleapis.com/auth/userinfo.profile';
@@ -176,12 +160,21 @@
     const editor = document.getElementById('editor');
     const hlLayer = document.getElementById('hl-layer');
     const lineNumBox = document.getElementById('line-numbers');
+    
+    // 按鈕控制
+    const runBtn = document.getElementById('btn-run');
+    const clearBtn = document.getElementById('btn-clear');
 
-    /* --- 1. 核心功能：行號與同步 --- */
+    /* --- 核心邏輯更新 --- */
     function updateEditor() {
         const text = editor.value;
-        
-        // 更新行號
+        const isEmpty = text.trim().length === 0;
+
+        // 1. 動態禁用/啟用按鈕
+        runBtn.disabled = isEmpty;
+        clearBtn.disabled = isEmpty;
+
+        // 2. 更新行號
         const lines = text.split('\n').length;
         let lineNumbersHTML = '';
         for (let i = 1; i <= lines; i++) {
@@ -189,7 +182,7 @@
         }
         lineNumBox.innerHTML = lineNumbersHTML;
 
-        // 更新語法亮高
+        // 3. 更新語法亮高
         let c = text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
         c = c.replace(/(&lt;!--[\s\S]*?--&gt;)/g, '<span class="hl-comment">$1</span>')
              .replace(/("[^"]*")/g, '<span class="hl-string">$1</span>')
@@ -198,40 +191,44 @@
              );
         hlLayer.innerHTML = c + '\n';
         
-        // 同步滾動
         syncScroll();
     }
 
     function syncScroll() {
         hlLayer.scrollTop = editor.scrollTop;
         hlLayer.scrollLeft = editor.scrollLeft;
-        lineNumBox.scrollTop = editor.scrollTop; // 行號也要同步滾動
+        lineNumBox.scrollTop = editor.scrollTop;
     }
 
-    /* --- 2. 核心功能：搜尋 --- */
-    function searchCode() {
-        const query = prompt("搜尋程式碼：");
-        if (!query) return;
+    function executeCode() {
+        if (editor.value.trim() === "") return; // 防呆
+        const w = window.open();
+        w.document.write(editor.value);
+    }
 
-        const content = editor.value;
-        const index = content.indexOf(query);
-
-        if (index !== -1) {
-            // 選取找到的文字
-            editor.focus();
-            editor.setSelectionRange(index, index + query.length);
-            
-            // 自動滾動到該位置
-            const lineHeight = 21;
-            const linesBefore = content.substring(0, index).split('\n').length;
-            editor.scrollTop = (linesBefore - 1) * lineHeight - 50; 
-            showMsg(`找到內容於第 ${linesBefore} 行`);
-        } else {
-            alert("找不到相符的內容");
+    function clearCode() {
+        if (editor.value.trim() === "") return; // 防呆
+        if (confirm("確定要清空當前內容嗎？")) {
+            editor.value = '';
+            updateEditor();
         }
     }
 
-    /* --- 3. 雲端與檔案邏輯 (沿用並優化) --- */
+    /* --- 搜尋、分頁、雲端 (維持不變) --- */
+    function searchCode() {
+        const query = prompt("搜尋程式碼：");
+        if (!query) return;
+        const content = editor.value;
+        const index = content.indexOf(query);
+        if (index !== -1) {
+            editor.focus();
+            editor.setSelectionRange(index, index + query.length);
+            const linesBefore = content.substring(0, index).split('\n').length;
+            editor.scrollTop = (linesBefore - 1) * 21 - 50; 
+            showMsg(`找到內容於第 ${linesBefore} 行`);
+        } else { alert("找不到相符內容"); }
+    }
+
     async function toggleCloudMode() {
         isCloudMode = document.getElementById('cloud-switch').checked;
         if (isCloudMode && !accessToken) {
@@ -240,7 +237,6 @@
         }
         document.body.classList.toggle('cloud-mode', isCloudMode);
         document.getElementById('mode-icon').textContent = isCloudMode ? '☁️' : '💻';
-        showMsg(isCloudMode ? "雲端模式已啟用" : "本機模式已啟用");
     }
 
     async function initAuth() {
@@ -277,7 +273,6 @@
         }
     }
 
-    /* --- 4. 編輯與分頁動作 --- */
     function handleImport() { isCloudMode ? openFromDrive() : importLocal(); }
     function handleExport() { isCloudMode ? saveToDrive() : exportLocal(); }
     function showMsg(msg) { document.getElementById('status-msg').textContent = msg; }
@@ -331,7 +326,6 @@
         picker.setVisible(true);
     }
 
-    /* --- 5. 介面渲染與初始化 --- */
     function renderTabs() {
         const list = document.getElementById('tabs-list'); list.innerHTML = '';
         files.forEach((f, i) => {
@@ -352,10 +346,7 @@
 
     async function pasteCode() { const text = await navigator.clipboard.readText(); const start = editor.selectionStart; editor.value = editor.value.substring(0, start) + text + editor.value.substring(editor.selectionEnd); updateEditor(); }
     function copyCode() { navigator.clipboard.writeText(editor.value); showMsg("已複製"); }
-    function clearCode() { if(confirm("清空?")){ editor.value=''; updateEditor(); } }
-    function executeCode() { const w=window.open(); w.document.write(editor.value); }
 
-    // 事件監聽
     editor.addEventListener('input', updateEditor);
     editor.addEventListener('scroll', syncScroll);
     editor.addEventListener('keydown', e => { 
